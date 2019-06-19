@@ -221,7 +221,7 @@ namespace AssistantRobotControlMsgService
             }
 
             // 创建Pipe通讯管道
-            innerPipe = new NamedPipeServerStream("innerCommunication", PipeDirection.InOut, 1);
+            innerPipe = new NamedPipeServerStream("innerCommunication", PipeDirection.InOut, 1, PipeTransmissionMode.Message, PipeOptions.Asynchronous);
 
             // 装上TCP心跳定时器
             tcpBeatClocker = new System.Timers.Timer(tcpSocketRecieveTimeOut / 2);
@@ -705,6 +705,7 @@ namespace AssistantRobotControlMsgService
                     ifPipeTransferEstablished = false;
                     break;
                 }
+                innerPipe.EndWaitForConnection(connectResult);
 
                 // Pipe连接建立之后允许Pipe接收数据
                 pipeRecieveCancel = new CancellationTokenSource();
@@ -1042,7 +1043,10 @@ namespace AssistantRobotControlMsgService
             NormalEndTcpOperation();
 
             // 停止Pipe传输，终止Pipe发送
-            pipeSendCancel.Cancel();
+            if (!Object.Equals(pipeSendCancel, null))
+            {
+                pipeSendCancel.Cancel();
+            }
         }
 
         /// <summary>
