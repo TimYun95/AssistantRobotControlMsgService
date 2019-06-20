@@ -472,7 +472,6 @@ namespace AssistantRobotControlMsgService
             switch (protocolKey)
             {
                 case TCPProtocolKey.RSAPublicKey:
-                    if (dataLength != (int)SecurityKeyLength.RSAKeyLength) return; // RSA公钥长度不匹配
                     remoteDeviceIndex = deviceIndex; // RSA传送时发送设备号
                     remoteDevicePublicKey = Encoding.UTF8.GetString(datas, (byte)TCPProtocol.DataContent, dataLength);
 
@@ -516,7 +515,7 @@ namespace AssistantRobotControlMsgService
         }
 
         /// <summary>
-        /// 发送AES公钥
+        /// 发送AES密钥
         /// </summary>
         private void SendAESKey()
         {
