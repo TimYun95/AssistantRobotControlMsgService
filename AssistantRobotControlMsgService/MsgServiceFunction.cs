@@ -507,9 +507,10 @@ namespace AssistantRobotControlMsgService
                     Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "TCP transfer is stopped and cut down pipe transfer at the same time.");
                     break;
                 case TCPProtocolKey.AESCommonKeyAndIV:
+                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Should not appear this command.");
                     break;
                 default:
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "No such control command.");
+                    Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "No such control command.");
                     break;
             }
         }
