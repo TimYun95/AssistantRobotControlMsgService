@@ -102,7 +102,8 @@ namespace AssistantRobotControlMsgService
 
         private NamedPipeServerStream innerPipe;
         private bool ifPipeTransferEstablished = false;
-        private readonly string localUIProgramAddress = "AssistantRobot.exe";
+        private readonly string localUIProgramName = "AssistantRobot.exe";
+        private readonly string localUIProgramPath = "D:\\";
 
         private CancellationTokenSource pipeRecieveCancel;
         private Task pipeRecieveTask;
@@ -158,7 +159,7 @@ namespace AssistantRobotControlMsgService
             else
             {
                 ifSuccessConstructed = false;
-                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "ifAtSamePC" + ") is wrong");
+                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "ifAtSamePC" + ") is wrong.");
                 return;
             }
 
@@ -167,7 +168,7 @@ namespace AssistantRobotControlMsgService
             else
             {
                 ifSuccessConstructed = false;
-                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "serverIPAtDiffPC" + ") is wrong");
+                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "serverIPAtDiffPC" + ") is wrong.");
                 return;
             }
 
@@ -177,7 +178,7 @@ namespace AssistantRobotControlMsgService
             else
             {
                 ifSuccessConstructed = false;
-                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "tcpSocketRecieveTimeOut" + ") is wrong");
+                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "tcpSocketRecieveTimeOut" + ") is wrong.");
                 return;
             }
 
@@ -187,16 +188,28 @@ namespace AssistantRobotControlMsgService
             else
             {
                 ifSuccessConstructed = false;
-                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "tcpSocketSendTimeOut" + ") is wrong");
+                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "tcpSocketSendTimeOut" + ") is wrong.");
                 return;
             }
 
-            string localUIProgramAddressTemp = ConfigurationManager.AppSettings["localUIProgramAddress"];
-            if (localUIProgramAddressTemp.Substring(localUIProgramAddressTemp.LastIndexOf('.') - 14) == "AssistantRobot.exe") localUIProgramAddress = localUIProgramAddressTemp;
+            string localUIProgramNameTemp = ConfigurationManager.AppSettings["localUIProgramName"];
+            if (localUIProgramNameTemp == "AssistantRobot.exe") localUIProgramName = localUIProgramNameTemp;
             else
             {
                 ifSuccessConstructed = false;
-                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "localUIProgramAddress" + ") is wrong");
+                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "localUIProgramName" + ") is wrong.");
+                return;
+            }
+
+            string localUIProgramPathTemp = ConfigurationManager.AppSettings["localUIProgramPath"];
+            if (Directory.Exists(localUIProgramPathTemp) && File.Exists(localUIProgramPathTemp + localUIProgramName))
+            {
+                localUIProgramPath = localUIProgramPathTemp;
+            }
+            else
+            {
+                ifSuccessConstructed = false;
+                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "localUIProgramPath" + ") is wrong.");
                 return;
             }
 
@@ -206,7 +219,7 @@ namespace AssistantRobotControlMsgService
             else
             {
                 ifSuccessConstructed = false;
-                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "maxBufferSize" + ") is wrong");
+                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "maxBufferSize" + ") is wrong.");
                 return;
             }
 
@@ -216,7 +229,7 @@ namespace AssistantRobotControlMsgService
             else
             {
                 ifSuccessConstructed = false;
-                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "waitTimerMsForBuffer" + ") is wrong");
+                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "App configuration parameter(" + "waitTimerMsForBuffer" + ") is wrong.");
                 return;
             }
 
@@ -357,8 +370,25 @@ namespace AssistantRobotControlMsgService
                 // 准备连接Pipe通讯
                 if (!ifPipeTransferEstablished) // 没连接Pipe则新建连接
                 {
-                    Process.Start(localUIProgramAddress); // 打开本地UI
-                    while (!ifPipeTransferEstablished) Thread.Sleep(1000); // 等待直到Pipe连接
+                    // 打开本地UI
+                    string cmdLine = "lsrunas /user:" + ConfigurationManager.AppSettings["userName"] + " " +
+                        "/password:" + ConfigurationManager.AppSettings["userPWD"] + " /domain: " +
+                        "/command:" + localUIProgramPath + localUIProgramName + " " +
+                        "/runpath:" + localUIProgramPath;
+                    SessionUtility.CreateProcess(null, cmdLine);
+                   
+                    int tempCounter = 0;
+                    bool pipeConnectSuccess = true;
+                    while (!ifPipeTransferEstablished)
+                    {
+                        Thread.Sleep(1000); // 等待直到Pipe连接
+                        if (++tempCounter > 10) 
+                        {
+                            pipeConnectSuccess = false;
+                            break; // pipe连接超时，tcp重置
+                        }
+                    }
+                    if (!pipeConnectSuccess) NormalEndTcpOperation();
                 }
 
                 // 等待直到TCP结束传输数据
