@@ -148,7 +148,7 @@ namespace AssistantRobotControlMsgService
                 ifSuccessConstructed = false;
                 return;
             }
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice starts with successful checked.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service starts with successful checked.");
 
             // 加载程序配置
             bool parseResult = true;
@@ -312,7 +312,7 @@ namespace AssistantRobotControlMsgService
                 tcpListenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 tcpListenSocket.Bind(new IPEndPoint(IPAddress.Parse(ifAtSamePC ? serverIPAtSamePC : serverIPAtDiffPC), serverPortTCPAny));
                 tcpListenSocket.Listen(1);
-                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice tcp listener begins to listen.");
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp listener begins to listen.");
 
                 // TCP侦听socket等待连接建立
                 IAsyncResult acceptResult = tcpListenSocket.BeginAccept(null, null);
@@ -347,11 +347,11 @@ namespace AssistantRobotControlMsgService
                 tcpTransferSocketEstablished = true;
                 tcpTransferSocket.ReceiveTimeout = tcpSocketRecieveTimeOut;
                 tcpTransferSocket.SendTimeout = tcpSocketSendTimeOut;
-                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice tcp transfer connection is established.");
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp transfer connection is established.");
 
                 // TCP连接建立之后关闭侦听socket
                 tcpListenSocket.Close();
-                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice tcp listener is closed.");
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp listener is closed.");
 
                 // TCP侦听socket关闭后 开始允许TCP传输socket接收数据
                 tcpRecieveCancel = new CancellationTokenSource();
@@ -432,7 +432,7 @@ namespace AssistantRobotControlMsgService
         private void tcpBeatClocker_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
             NormalEndTcpOperation();
-            Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice tcp transfer recieve no beats in definite time.");
+            Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp transfer recieve no beats in definite time.");
         }
         #endregion
 
@@ -443,7 +443,7 @@ namespace AssistantRobotControlMsgService
         /// <param name="cancelFlag">停止标志</param>
         private void TcpRecieveTaskWork(CancellationToken cancelFlag)
         {
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice tcp transfer begins to recieve datas.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp transfer begins to recieve datas.");
 
             while (true)
             {
@@ -460,7 +460,7 @@ namespace AssistantRobotControlMsgService
                     if (ex.SocketErrorCode == SocketError.ConnectionReset || ex.SocketErrorCode == SocketError.TimedOut)
                     { // 意外中断连接 执行一般中断连接
                         NormalEndTcpOperation();
-                        Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice tcp transfer recieve no datas in definite time.");
+                        Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp transfer recieve no datas in definite time.");
                     }
                     else
                     { // 两个连接不再重建，关闭TCP同时关闭Pipe
@@ -470,7 +470,7 @@ namespace AssistantRobotControlMsgService
                 }
             }
 
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice tcp transfer stops to recieve datas.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp transfer stops to recieve datas.");
         }
 
         /// <summary>
@@ -581,7 +581,7 @@ namespace AssistantRobotControlMsgService
         /// <param name="cancelFlag">停止标志</param>
         private void TcpSendTaskWork(CancellationToken cancelFlag)
         {
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice tcp transfer is ready to send datas.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp transfer is ready to send datas.");
 
             while (true)
             {
@@ -597,7 +597,7 @@ namespace AssistantRobotControlMsgService
                 SendTCPBytes(dataContent);
             }
 
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice tcp transfer stops to send datas.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp transfer stops to send datas.");
         }
 
         /// <summary>
@@ -649,7 +649,7 @@ namespace AssistantRobotControlMsgService
                 if (ex.SocketErrorCode == SocketError.ConnectionReset || ex.SocketErrorCode == SocketError.ConnectionAborted || ex.SocketErrorCode == SocketError.TimedOut)
                 { // 意外中断连接 执行一般中断连接
                     NormalEndTcpOperation();
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice tcp transfer send datas failed.", ex);
+                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp transfer send datas failed.", ex);
                 }
                 else
                 { // 两个连接不再重建，关闭TCP同时关闭Pipe
@@ -716,7 +716,7 @@ namespace AssistantRobotControlMsgService
         /// <param name="cancelFlag">停止标志</param>
         private void PipeConnectionTaskWork(CancellationToken cancelFlag)
         {
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice pipe connector begins.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service pipe connector begins.");
 
             while (true)
             {
@@ -764,14 +764,14 @@ namespace AssistantRobotControlMsgService
                 Thread.Sleep(2000);
             }
 
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice pipe connector stops.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service pipe connector stops.");
 
             tcpListenTask.Wait();
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice pipe connector stops with tcp listener stops too.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service pipe connector stops with tcp listener stops too.");
 
             if (ifCloseFromInnerSide)
             {
-                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice close from inner side.");
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service close from inner side.");
                 OnSendCloseService();
             }
         }
@@ -784,7 +784,7 @@ namespace AssistantRobotControlMsgService
         /// <param name="cancelFlag">停止标志</param>
         private void PipeSendTaskWork(CancellationToken cancelFlag)
         {
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice pipe transfer begins to send datas.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service pipe transfer begins to send datas.");
 
             while (true)
             {
@@ -811,7 +811,7 @@ namespace AssistantRobotControlMsgService
 
             pipeRecieveCancel.Cancel(); // 发送停止，则接收也准备停止
 
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice pipe transfer stops to send datas.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service pipe transfer stops to send datas.");
         }
         #endregion
 
@@ -822,7 +822,7 @@ namespace AssistantRobotControlMsgService
         /// <param name="cancelFlag">停止标志</param>
         private void PipeRecieveTaskWork(CancellationToken cancelFlag)
         {
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice pipe transfer begins to recieve datas.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service pipe transfer begins to recieve datas.");
 
             while (true)
             {
@@ -864,7 +864,7 @@ namespace AssistantRobotControlMsgService
 
             // Pipe接收停止，则发送一定停止，Pipe连接中断
 
-            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server sevice pipe transfer stops to recieve datas.");
+            Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service pipe transfer stops to recieve datas.");
         }
         #endregion
 
