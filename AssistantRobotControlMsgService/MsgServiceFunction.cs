@@ -12,6 +12,7 @@ using System.IO.Pipes;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Configuration;
+using System.Security.AccessControl;
 
 using LogPrinter;
 
@@ -100,7 +101,9 @@ namespace AssistantRobotControlMsgService
         private CancellationTokenSource pipeConnectCancel;
         private Task pipeConnectionTask;
 
-        private NamedPipeServerStream innerPipe;
+        private NamedPipeServerStream innerPipeWriteToServer;
+        private NamedPipeServerStream innerPipeReadFromServer;
+
         private bool ifPipeTransferEstablished = false;
         private readonly string localUIProgramName = "AssistantRobot.exe";
         private readonly string localUIProgramPath = "D:\\";
@@ -234,7 +237,13 @@ namespace AssistantRobotControlMsgService
             }
 
             // 创建Pipe通讯管道
-            innerPipe = new NamedPipeServerStream("innerCommunication", PipeDirection.InOut, 1, PipeTransmissionMode.Message, PipeOptions.Asynchronous);
+            PipeSecurity writeToServerRight = new PipeSecurity(); // 入服务器
+            writeToServerRight.AddAccessRule(new PipeAccessRule("Users", PipeAccessRights.ReadWrite, AccessControlType.Allow));
+            innerPipeWriteToServer = new NamedPipeServerStream("pipeWriteToServer", PipeDirection.In, 1, PipeTransmissionMode.Message, PipeOptions.Asynchronous, 2048, 64, writeToServerRight);
+            
+            PipeSecurity readFromServerRight = new PipeSecurity(); // 出服务器
+            readFromServerRight.AddAccessRule(new PipeAccessRule("Users", PipeAccessRights.ReadWrite, AccessControlType.Allow));
+            innerPipeReadFromServer = new NamedPipeServerStream("pipeReadFromServer", PipeDirection.Out, 1, PipeTransmissionMode.Message, PipeOptions.Asynchronous, 64, 2048, readFromServerRight);
 
             // 装上TCP心跳定时器
             tcpBeatClocker = new System.Timers.Timer(tcpSocketRecieveTimeOut / 2);
@@ -259,7 +268,7 @@ namespace AssistantRobotControlMsgService
             tcpListenCancel = new CancellationTokenSource();
             tcpListenTask = new Task(() => TcpListenTaskWork(tcpListenCancel.Token));
             tcpListenTask.Start();
-
+            
             // Pipe等待连接Task开启
             pipeConnectCancel = new CancellationTokenSource();
             pipeConnectionTask = new Task(() => PipeConnectionTaskWork(pipeConnectCancel.Token));
@@ -366,31 +375,34 @@ namespace AssistantRobotControlMsgService
                 // 打开心跳定时器
                 tcpBeatClocker.Start();
                 Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Beats is required.");
-
+                
                 // 准备连接Pipe通讯
                 if (!ifPipeTransferEstablished) // 没连接Pipe则新建连接
                 {
+                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Begins to open local ui.");
+
                     // 打开本地UI
                     string cmdLine = "lsrunas /user:" + ConfigurationManager.AppSettings["userName"] + " " +
                         "/password:" + ConfigurationManager.AppSettings["userPWD"] + " /domain: " +
                         "/command:" + localUIProgramPath + localUIProgramName + " " +
                         "/runpath:" + localUIProgramPath;
                     SessionUtility.CreateProcess(null, cmdLine);
-                   
+
                     int tempCounter = 0;
                     bool pipeConnectSuccess = true;
                     while (!ifPipeTransferEstablished)
                     {
                         Thread.Sleep(1000); // 等待直到Pipe连接
-                        if (++tempCounter > 10) 
+                        if (++tempCounter > 10)
                         {
+                            Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Local ui has not been opened yet, reset all connections.");
                             pipeConnectSuccess = false;
                             break; // pipe连接超时，tcp重置
                         }
                     }
                     if (!pipeConnectSuccess) NormalEndTcpOperation();
                 }
-
+                
                 // 等待直到TCP结束传输数据
                 tcpRecieveTask.Wait();
                 tcpSendTask.Wait();
@@ -419,6 +431,8 @@ namespace AssistantRobotControlMsgService
 
                 // 等待后继续
                 Thread.Sleep(1000);
+
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp listener restart.");
             }
 
             Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp listener stops.");
@@ -607,6 +621,7 @@ namespace AssistantRobotControlMsgService
         private void SendTCPBytes(byte[] dataContent)
         {
             byte[] encryptedContent = EncryptByAES(dataContent); // 加密
+            byte[] decryptedContent = DecryptByAES(encryptedContent); // 加密
 
             if (Object.Equals(encryptedContent, null)) return; // 加密失败
 
@@ -722,20 +737,35 @@ namespace AssistantRobotControlMsgService
             {
                 if (cancelFlag.IsCancellationRequested) break;
 
-                // 等待本地UI连接
-                IAsyncResult connectResult = innerPipe.BeginWaitForConnection(null, null);
+                // 等待本地UI连接 
+                // 入服务器
+                IAsyncResult connectInResult = innerPipeWriteToServer.BeginWaitForConnection(null, null);
                 do
                 {
                     if (cancelFlag.IsCancellationRequested) break;
-                    connectResult.AsyncWaitHandle.WaitOne(1000, true);  //等待1秒
-                } while (!connectResult.IsCompleted);
+                    connectInResult.AsyncWaitHandle.WaitOne(1000, true);  //等待1秒
+                } while (!connectInResult.IsCompleted);
                 if (cancelFlag.IsCancellationRequested) // 不再connect等待
                 {
                     // Pipe连接终止标志位
                     ifPipeTransferEstablished = false;
                     break;
                 }
-                innerPipe.EndWaitForConnection(connectResult);
+                innerPipeWriteToServer.EndWaitForConnection(connectInResult);
+                // 出服务器
+                IAsyncResult connectOutResult = innerPipeReadFromServer.BeginWaitForConnection(null, null);
+                do
+                {
+                    if (cancelFlag.IsCancellationRequested) break;
+                    connectOutResult.AsyncWaitHandle.WaitOne(1000, true);  //等待1秒
+                } while (!connectOutResult.IsCompleted);
+                if (cancelFlag.IsCancellationRequested) // 不再connect等待
+                {
+                    // Pipe连接终止标志位
+                    ifPipeTransferEstablished = false;
+                    break;
+                }
+                innerPipeReadFromServer.EndWaitForConnection(connectOutResult);
 
                 // Pipe连接建立之后允许Pipe接收数据
                 pipeRecieveCancel = new CancellationTokenSource();
@@ -758,10 +788,13 @@ namespace AssistantRobotControlMsgService
                 ifPipeTransferEstablished = false;
 
                 // 断开Pipe连接
-                innerPipe.Disconnect();
+                innerPipeReadFromServer.Disconnect();
+                innerPipeWriteToServer.Disconnect();
 
                 // 等待后继续
                 Thread.Sleep(2000);
+
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service pipe connector restart.");
             }
 
             Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service pipe connector stops.");
@@ -799,8 +832,8 @@ namespace AssistantRobotControlMsgService
 
                 try
                 {
-                    innerPipe.Write(pipeDatas, 0, pipeDatas.Length);
-                    innerPipe.Flush();
+                    innerPipeReadFromServer.Write(pipeDatas, 0, pipeDatas.Length);
+                    innerPipeReadFromServer.Flush();
                 }
                 catch (Exception ex)
                 { // 两个连接不再重建，关闭TCP同时关闭Pipe
@@ -831,7 +864,7 @@ namespace AssistantRobotControlMsgService
                 try
                 {
                     byte[] recieveBuf = new byte[150];
-                    int recieveLength = innerPipe.Read(recieveBuf, 0, 150);
+                    int recieveLength = innerPipeWriteToServer.Read(recieveBuf, 0, 150);
 
                     // 长度为0，则连接中断
                     if (recieveLength < 1) throw new Exception("Pipe should not be cut down, but recieve 0 byte.");
@@ -860,9 +893,25 @@ namespace AssistantRobotControlMsgService
                     EndTcpOperationWithStopPipeTransferAndOverService();
                     Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Not deal exception.", ex);
                 }
+                catch (Exception ex)
+                {
+                    if (ex.Message != "Pipe should not be cut down, but recieve 0 byte.")
+                    {
+                        // 两个连接不再重建，关闭TCP同时关闭Pipe
+                        EndTcpOperationWithStopPipeTransferAndOverService();
+                        Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Not deal exception.", ex);
+                    }
+                    else
+                    {
+                        // 两个连接不再重建，关闭TCP同时关闭Pipe
+                        EndTcpOperationWithStopPipeTransferAndOverService();
+                        Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Pipe client closed First.", ex);
+                    }
+                }
             }
 
             // Pipe接收停止，则发送一定停止，Pipe连接中断
+            pipeSendTask.Wait();
 
             Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service pipe transfer stops to recieve datas.");
         }
@@ -980,7 +1029,7 @@ namespace AssistantRobotControlMsgService
                 return null; // AES密钥和初始向量未知
             }
 
-            string nonEncryptedString = Encoding.UTF8.GetString(nonEncryptedBytes);
+            string nonEncryptedString = Convert.ToBase64String(nonEncryptedBytes);
 
             byte[] encryptedBytes = null;
             using (AesCryptoServiceProvider aes = new AesCryptoServiceProvider())
@@ -1000,6 +1049,7 @@ namespace AssistantRobotControlMsgService
                     }
                 }
             }
+
             return encryptedBytes;
         }
 
@@ -1035,7 +1085,7 @@ namespace AssistantRobotControlMsgService
                         using (StreamReader swDecrypt = new StreamReader(csDecrypt))
                         {
                             string decryptedString = swDecrypt.ReadToEnd();
-                            decryptedBytes = Encoding.UTF8.GetBytes(decryptedString);
+                            decryptedBytes = Convert.FromBase64String(decryptedString);
                         }
                     }
                 }
@@ -1076,6 +1126,12 @@ namespace AssistantRobotControlMsgService
             if (!Object.Equals(pipeSendCancel, null))
             {
                 pipeSendCancel.Cancel();
+            }
+
+            // 停止Pipe传输，终止Pipe接收
+            if (!Object.Equals(pipeRecieveCancel, null))
+            {
+                pipeRecieveCancel.Cancel();
             }
         }
 
