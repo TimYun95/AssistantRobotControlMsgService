@@ -59,8 +59,8 @@ namespace AssistantRobotControlMsgService
             if (sessionID < 0)
                 dwSessionID = WTSGetActiveConsoleSessionId();
 
-            if (!WTSQueryUserToken(dwSessionID, out hToken)) 
-                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "WTSQueryUserToken failed.");
+            if (!WTSQueryUserToken(dwSessionID, out hToken))
+                Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, String.Format("WTSQueryUserToken failed, sessionID: {0}.", dwSessionID));
             
             if (!DuplicateTokenEx(
                   hToken,

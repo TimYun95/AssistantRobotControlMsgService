@@ -64,19 +64,24 @@ namespace AssistantRobotControlMsgService
         #region 字段 TCP
         private readonly bool ifAtSamePC = true;
 
-        private const int clientPortTCPAtSamePC = 40002;
+        private const int clientPortTCPSendAtSamePC = 40003;
+        private const int clientPortTCPRecieveAtSamePC = 40004; 
         private const string serverIPAtSamePC = "127.0.0.1";
 
-        private const int clientPortTCPAtDiffPC = 40001;
-        private readonly string serverIPAtDiffPC = "192.168.1.13"; // 应该是192.168.1.13
+        private const int clientPortTCPSendAtDiffPC = 40001;
+        private const int clientPortTCPRecieveAtDiffPC = 40002;
+        private readonly string serverIPAtDiffPC = "192.168.1.13";
 
-        const int serverPortTCPAny = 40001;
+        private const int serverPortTCPRecieveAny = 40001; // 端口转发应该设置同一端口
+        private const int serverPortTCPSendAny = 40002; // 端口转发应该设置同一端口
 
-        private Socket tcpListenSocket;
+        private Socket tcpListenRecieveSocket;
+        private Socket tcpListenSendSocket;
         private CancellationTokenSource tcpListenCancel;
         private Task tcpListenTask;
 
-        private Socket tcpTransferSocket;
+        private Socket tcpTransferRecieveSocket;
+        private Socket tcpTransferSendSocket;
         private bool tcpTransferSocketEstablished = false;
         private bool ifTCPTransferEstablished = false;
 
@@ -246,7 +251,7 @@ namespace AssistantRobotControlMsgService
             innerPipeReadFromServer = new NamedPipeServerStream("pipeReadFromServer", PipeDirection.Out, 1, PipeTransmissionMode.Message, PipeOptions.Asynchronous, 64, 2048, readFromServerRight);
 
             // 装上TCP心跳定时器
-            tcpBeatClocker = new System.Timers.Timer(tcpSocketRecieveTimeOut / 2);
+            tcpBeatClocker = new System.Timers.Timer(tcpSocketRecieveTimeOut * 2 / 3);
             tcpBeatClocker.AutoReset = false;
             tcpBeatClocker.Elapsed += tcpBeatClocker_Elapsed;
 
@@ -318,18 +323,24 @@ namespace AssistantRobotControlMsgService
                 }
 
                 // TCP侦听socket建立 开始侦听
-                tcpListenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                tcpListenSocket.Bind(new IPEndPoint(IPAddress.Parse(ifAtSamePC ? serverIPAtSamePC : serverIPAtDiffPC), serverPortTCPAny));
-                tcpListenSocket.Listen(1);
+                tcpListenRecieveSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                tcpListenRecieveSocket.Bind(new IPEndPoint(IPAddress.Parse(ifAtSamePC ? serverIPAtSamePC : serverIPAtDiffPC), serverPortTCPRecieveAny));
+                tcpListenSendSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                tcpListenSendSocket.Bind(new IPEndPoint(IPAddress.Parse(ifAtSamePC ? serverIPAtSamePC : serverIPAtDiffPC), serverPortTCPSendAny));
+
+                tcpListenRecieveSocket.Listen(1);
+                tcpListenSendSocket.Listen(1);
                 Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp listener begins to listen.");
 
                 // TCP侦听socket等待连接建立
-                IAsyncResult acceptResult = tcpListenSocket.BeginAccept(null, null);
+                IAsyncResult acceptRecieveResult = tcpListenRecieveSocket.BeginAccept(null, null);
+                IAsyncResult acceptSendResult = tcpListenSendSocket.BeginAccept(null, null);
                 do
                 {
                     if (cancelFlag.IsCancellationRequested) break;
-                    acceptResult.AsyncWaitHandle.WaitOne(1000, true);  //等待1秒
-                } while (!acceptResult.IsCompleted);
+                    acceptRecieveResult.AsyncWaitHandle.WaitOne(500, true);  // 合计等待1秒
+                    acceptSendResult.AsyncWaitHandle.WaitOne(500, true);
+                } while (!(acceptRecieveResult.IsCompleted && acceptSendResult.IsCompleted));
                 if (cancelFlag.IsCancellationRequested) // 不再accept等待
                 {
                     // 清理连接
@@ -352,14 +363,16 @@ namespace AssistantRobotControlMsgService
                     remoteDeviceIndex = null;
                     break;
                 }
-                tcpTransferSocket = tcpListenSocket.EndAccept(acceptResult);
+                tcpTransferRecieveSocket = tcpListenRecieveSocket.EndAccept(acceptRecieveResult);
+                tcpTransferSendSocket = tcpListenSendSocket.EndAccept(acceptSendResult);
                 tcpTransferSocketEstablished = true;
-                tcpTransferSocket.ReceiveTimeout = tcpSocketRecieveTimeOut;
-                tcpTransferSocket.SendTimeout = tcpSocketSendTimeOut;
+                tcpTransferRecieveSocket.ReceiveTimeout = tcpSocketRecieveTimeOut;
+                tcpTransferSendSocket.SendTimeout = tcpSocketSendTimeOut;
                 Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp transfer connection is established.");
 
                 // TCP连接建立之后关闭侦听socket
-                tcpListenSocket.Close();
+                tcpListenRecieveSocket.Close();
+                tcpListenSendSocket.Close();
                 Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp listener is closed.");
 
                 // TCP侦听socket关闭后 开始允许TCP传输socket接收数据
@@ -386,7 +399,7 @@ namespace AssistantRobotControlMsgService
                         "/password:" + ConfigurationManager.AppSettings["userPWD"] + " /domain: " +
                         "/command:" + localUIProgramPath + localUIProgramName + " " +
                         "/runpath:" + localUIProgramPath;
-                    SessionUtility.CreateProcess(null, cmdLine);
+                    SessionUtility.CreateProcess(null, cmdLine, int.Parse(ConfigurationManager.AppSettings["userSession"]));
 
                     int tempCounter = 0;
                     bool pipeConnectSuccess = true;
@@ -466,7 +479,7 @@ namespace AssistantRobotControlMsgService
                 try
                 {
                     byte[] reciveDatas = new byte[1024 + 8]; // 最大长度为RSA公钥加上协议头
-                    int actualLength = tcpTransferSocket.Receive(reciveDatas);
+                    int actualLength = tcpTransferRecieveSocket.Receive(reciveDatas);
                     DealWithTcpTransferRecieveDatas(reciveDatas.Take(actualLength).ToArray());
                 }
                 catch (SocketException ex)
@@ -530,7 +543,7 @@ namespace AssistantRobotControlMsgService
                     // 入队等待Pipe发送 
                     PushNormalData(datas.Skip((byte)TCPProtocol.DataContent).ToArray());
 
-                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Data enqueue for pipe.");
+                    Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Data enqueue for pipe to localui.");
                     break;
                 case TCPProtocolKey.PingSignal:
                     if (remoteDeviceIndex != deviceIndex) return; // 设备号不匹配
@@ -609,6 +622,7 @@ namespace AssistantRobotControlMsgService
                 }
 
                 SendTCPBytes(dataContent);
+                Thread.Sleep(waitTimerMsForBuffer);
             }
 
             Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Msg server service tcp transfer stops to send datas.");
@@ -621,13 +635,16 @@ namespace AssistantRobotControlMsgService
         private void SendTCPBytes(byte[] dataContent)
         {
             byte[] encryptedContent = EncryptByAES(dataContent); // 加密
-            byte[] decryptedContent = DecryptByAES(encryptedContent); // 加密
 
             if (Object.Equals(encryptedContent, null)) return; // 加密失败
 
             byte[] sendBytes = EnpackTCP(encryptedContent, TCPProtocolKey.NormalData); // 打包
 
             SendWork(sendBytes); // 发送
+
+            AppProtocolStatus aps = (AppProtocolStatus)dataContent[(byte)AppProtocol.DataKey];
+            if (aps != AppProtocolStatus.URRealTimeData)
+                Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Send status \"" + Enum.GetName(aps.GetType(), aps) + "\".");
         }
 
         /// <summary>
@@ -657,7 +674,7 @@ namespace AssistantRobotControlMsgService
         {
             try
             {
-                tcpTransferSocket.Send(sendBytes);
+                tcpTransferSendSocket.Send(sendBytes);
             }
             catch (SocketException ex)
             {
@@ -711,6 +728,7 @@ namespace AssistantRobotControlMsgService
             URNearSingularState = 4,
             URInitialPowerOnAsk = 5,
             URInitialPowerOnAskReply = 6,
+            URAdditionalDeviceAbnormal = 7,
 
             BreastScanConfiguration = 101,
             BreastScanWorkStatus = 102,
@@ -840,6 +858,7 @@ namespace AssistantRobotControlMsgService
                     EndTcpOperationWithStopPipeTransferAndOverService();
                     Logger.HistoryPrinting(Logger.Level.WARN, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Not deal exception.", ex);
                 }
+                Thread.Sleep(waitTimerMsForBuffer);
             }
 
             pipeRecieveCancel.Cancel(); // 发送停止，则接收也准备停止
@@ -1156,8 +1175,12 @@ namespace AssistantRobotControlMsgService
         {
             if (tcpTransferSocketEstablished)
             {
-                tcpTransferSocket.Shutdown(SocketShutdown.Both);
-                tcpTransferSocket.Close();
+                tcpTransferRecieveSocket.Shutdown(SocketShutdown.Both);
+                tcpTransferRecieveSocket.Close();
+
+                tcpTransferSendSocket.Shutdown(SocketShutdown.Both);
+                tcpTransferSendSocket.Close();
+
                 tcpTransferSocketEstablished = false;
             }
         }
