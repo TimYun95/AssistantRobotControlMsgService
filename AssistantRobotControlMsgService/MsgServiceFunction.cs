@@ -85,7 +85,7 @@ namespace AssistantRobotControlMsgService
         private bool tcpTransferSocketEstablished = false;
         private bool ifTCPTransferEstablished = false;
 
-        private readonly int tcpSocketRecieveTimeOut = 3 * 1000;
+        private readonly int tcpSocketRecieveTimeOut = 4 * 1000;
         private readonly int tcpSocketSendTimeOut = 1000;
         private System.Timers.Timer tcpBeatClocker;
         private CancellationTokenSource tcpRecieveCancel;
@@ -251,7 +251,7 @@ namespace AssistantRobotControlMsgService
             innerPipeReadFromServer = new NamedPipeServerStream("pipeReadFromServer", PipeDirection.Out, 1, PipeTransmissionMode.Message, PipeOptions.Asynchronous, 64, 2048, readFromServerRight);
 
             // 装上TCP心跳定时器
-            tcpBeatClocker = new System.Timers.Timer(tcpSocketRecieveTimeOut * 2 / 3);
+            tcpBeatClocker = new System.Timers.Timer(tcpSocketRecieveTimeOut * 3 / 4);
             tcpBeatClocker.AutoReset = false;
             tcpBeatClocker.Elapsed += tcpBeatClocker_Elapsed;
 
