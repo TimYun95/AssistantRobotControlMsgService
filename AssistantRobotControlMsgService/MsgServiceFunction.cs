@@ -65,7 +65,7 @@ namespace AssistantRobotControlMsgService
         private readonly bool ifAtSamePC = true;
 
         private const int clientPortTCPSendAtSamePC = 40003;
-        private const int clientPortTCPRecieveAtSamePC = 40004; 
+        private const int clientPortTCPRecieveAtSamePC = 40004;
         private const string serverIPAtSamePC = "127.0.0.1";
 
         private const int clientPortTCPSendAtDiffPC = 40001;
@@ -245,7 +245,7 @@ namespace AssistantRobotControlMsgService
             PipeSecurity writeToServerRight = new PipeSecurity(); // 入服务器
             writeToServerRight.AddAccessRule(new PipeAccessRule("Users", PipeAccessRights.ReadWrite, AccessControlType.Allow));
             innerPipeWriteToServer = new NamedPipeServerStream("pipeWriteToServer", PipeDirection.In, 1, PipeTransmissionMode.Message, PipeOptions.Asynchronous, 2048, 64, writeToServerRight);
-            
+
             PipeSecurity readFromServerRight = new PipeSecurity(); // 出服务器
             readFromServerRight.AddAccessRule(new PipeAccessRule("Users", PipeAccessRights.ReadWrite, AccessControlType.Allow));
             innerPipeReadFromServer = new NamedPipeServerStream("pipeReadFromServer", PipeDirection.Out, 1, PipeTransmissionMode.Message, PipeOptions.Asynchronous, 64, 2048, readFromServerRight);
@@ -273,7 +273,7 @@ namespace AssistantRobotControlMsgService
             tcpListenCancel = new CancellationTokenSource();
             tcpListenTask = new Task(() => TcpListenTaskWork(tcpListenCancel.Token));
             tcpListenTask.Start();
-            
+
             // Pipe等待连接Task开启
             pipeConnectCancel = new CancellationTokenSource();
             pipeConnectionTask = new Task(() => PipeConnectionTaskWork(pipeConnectCancel.Token));
@@ -388,7 +388,7 @@ namespace AssistantRobotControlMsgService
                 // 打开心跳定时器
                 tcpBeatClocker.Start();
                 Logger.HistoryPrinting(Logger.Level.INFO, MethodBase.GetCurrentMethod().DeclaringType.FullName, "Beats is required.");
-                
+
                 // 准备连接Pipe通讯
                 if (!ifPipeTransferEstablished) // 没连接Pipe则新建连接
                 {
@@ -414,8 +414,17 @@ namespace AssistantRobotControlMsgService
                         }
                     }
                     if (!pipeConnectSuccess) NormalEndTcpOperation();
+                    else
+                    {
+                        List<byte> byteDatas = new List<byte>((byte)AppProtocol.DataContent);
+                        byteDatas.AddRange(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(2)));
+                        byteDatas.Add((byte)AppProtocolDireciton.Remote2Local);
+                        byteDatas.Add((byte)AppProtocolCommand.NotifyRemoteConnected);
+
+                        PushToQueue(byteDatas.ToArray(), QueueNum.TcpToPipe);
+                    }
                 }
-                
+
                 // 等待直到TCP结束传输数据
                 tcpRecieveTask.Wait();
                 tcpSendTask.Wait();
@@ -738,7 +747,43 @@ namespace AssistantRobotControlMsgService
             BreastScanImmediateStop = 201,
             BreastScanImmediateStopRecovery = 202,
 
+            ChangePage = 221,
+
             EndPipeConnection = 251
+        }
+
+        /// <summary>
+        /// 应用协议指令
+        /// </summary>
+        public enum AppProtocolCommand : byte
+        {
+            MoveTcp = 1,
+            MoveJoint = 2,
+            MoveStop = 3,
+            MoveReference = 4,
+            MoveSpeed = 5,
+
+            PowerOn = 51,
+            BrakeRelease = 52,
+            PowerOff = 53,
+            AutoPowerOn = 61,
+
+            ChangePage = 81,
+
+            EnterBreastScanMode = 101,
+            BreastScanModeBeginForceZeroed = 102,
+            BreastScanModeBeginConfigurationSet = 103,
+            BreastScanModeConfirmNipplePos = 104,
+            BreastScanModeNextConfigurationItem = 105,
+            BreastScanModeConfirmConfigurationSet = 106,
+            BreastScanModeReadyAndStartBreastScan = 107,
+            BreastScanModeSaveConfigurationSet = 108,
+
+            StopBreastScanImmediately = 121,
+            RecoveryFromStopBreastScanImmediately = 122,
+            ExitBreastScanMode = 131,
+
+            NotifyRemoteConnected = 251
         }
         #endregion
 
