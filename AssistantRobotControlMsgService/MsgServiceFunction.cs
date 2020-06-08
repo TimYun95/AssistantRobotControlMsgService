@@ -744,13 +744,215 @@ namespace AssistantRobotControlMsgService
             BreastScanWorkStatus = 102,
             BreastScanConfigurationConfirmStatus = 103,
             BreastScanForceZerodStatus = 104,
-            BreastScanConfigurationProcess = 151,
-            BreastScanImmediateStop = 201,
-            BreastScanImmediateStopRecovery = 202,
+            BreastScanConfigurationProcess = 111,
+            BreastScanImmediateStop = 121,
+            BreastScanImmediateStopRecovery = 122,
+
+            RemoteScanStartPos = 150,
+            RemoteScanConfiguration = 151,
+            RemoteScanWorkStatus = 152,
+            RemoteScanConfigurationConfirmStatus = 153,
+            RemoteScanForceZerodStatus = 154,
+            RemoteScanConfigurationProcess = 161,
+            RemoteScanImmediateStop = 171,
+            RemoteScanImmediateStopRecovery = 172,
 
             ChangePage = 221,
 
             EndPipeConnection = 251
+        }
+
+        /// <summary>
+        /// 应用协议状态 实时数据报格式
+        /// </summary>
+        public enum AppProtocolRTFeedBackDatagram : byte
+        {
+            TcpCoordinates = 0, // float
+            JointCoordinates = 24, // float
+            CurrentCoordinates = 48, // float
+            TcpForce = 72, // float
+            RobotState = 96, // byte
+            RobotProgramState = 97 // byte
+        }
+
+        /// <summary>
+        /// 应用协议状态 UR紧急状态数据报格式
+        /// </summary>
+        public enum AppProtocolEmergencyStateDatagram : byte
+        {
+            EmergencyState = 0 // byte: URDataProcessor.RobotEmergency
+        }
+
+        /// <summary>
+        /// 应用协议状态 UR近奇异点状态数据报格式
+        /// </summary>
+        public enum AppProtocolNearSingularStateDatagram : byte
+        {
+            SingularState = 0
+        }
+
+        /// <summary>
+        /// 应用协议状态 UR近奇异点状态数据报格式 奇异点种类
+        /// </summary>
+        public enum AppProtocolNearSingularStateDatagramClass : byte
+        {
+            ShoulderSingular = 0,
+            ElbowSingular = 1,
+            WristSingular = 2
+        }
+
+        /// <summary>
+        /// 应用协议状态 UR外围设备异常状态数据报格式
+        /// </summary>
+        public enum AppProtocolAdditionalDeviceAbnormalDatagram : byte
+        {
+            AbnormalClass = 0
+        }
+
+        /// <summary>
+        /// 应用协议状态 UR外围设备异常状态数据报格式 异常种类
+        /// </summary>
+        public enum AppProtocolAdditionalDeviceAbnormalDatagramClass : byte
+        {
+            DataBaseAttachFailed = 0,
+            SerialPortAttachFailed = 1,
+            URNetConnectionRecovery = 2
+        }
+
+        /// <summary>
+        /// 应用协议状态 乳腺扫描配置数据报格式
+        /// </summary>
+        public enum AppProtocolBreastScanConfigurationDatagram : byte
+        {
+            DetectingErrorForceMinGDR = 0,
+            DetectingErrorForceMaxGDR = 4,
+            DetectingSpeedMinGDR = 8,
+            IfEnableAngleCorrectedGDR = 12,
+            NippleForbiddenRadiusGDR = 13,
+            DetectingStopDistanceGDR = 17,
+            DetectingSafetyLiftDistanceGDR = 21,
+            IfEnableDetectingInitialForceGDR = 25,
+            DetectingSinkDistanceGDR = 26,
+            VibratingAngleDegreeGDR = 30,
+            MovingSpeedDegreeGDR = 31,
+            DetectingForceDegreeGDR = 32,
+            DetectingAlignDegreeGDR = 33,
+            MovingUpEdgeDistanceGDR = 34,
+            MovingLeftEdgeDistanceGDR = 38,
+            MovingDownEdgeDistanceGDR = 42,
+            MovingRightEdgeDistanceGDR = 46,
+            IfAutoReplaceConfigurationGDR = 50,
+            IfCheckRightGalactophoreGDR = 51,
+            IdentifyEdgeModeGDR = 52,
+            CheckingStepGDR = 53
+        }
+
+        /// <summary>
+        /// 应用协议状态 乳腺扫描工作状态数据报格式
+        /// </summary>
+        public enum AppProtocolBreastScanWorkStatusDatagram : byte
+        {
+            ModuleWorkingStatus = 0 // byte: OperateModuleBase.WorkStatus
+        }
+
+        /// <summary>
+        /// 应用协议状态 乳腺扫描配置确认数据报格式
+        /// </summary>
+        public enum AppProtocolBreastScanConfigurationConfirmDatagram : byte
+        {
+            HasConfirmConfiguration = 0 // byte: 0--no 1--yes
+        }
+
+        /// <summary>
+        /// 应用协议状态 乳腺扫描力清零数据报格式
+        /// </summary>
+        public enum AppProtocolBreastScanForceZerodDatagram : byte
+        {
+            HasForceZeroed = 0 // byte: 0--no 1--yes
+        }
+
+        /// <summary>
+        /// 应用协议状态 乳腺扫描配置过程进度数据报格式
+        /// </summary>
+        public enum AppProtocolBreastScanConfigurationProcessDatagram : byte
+        {
+            ConfProcess = 0 // byte: 0--BeforeConfiguration
+            // 1--NipplePos
+            // 2--LiftDistance
+            // 3--ForbiddenDistance
+            // 4--ScanDepth
+            // 5--UpEdge
+            // 6--DownEdge
+            // 7--LeftEdge
+            // 8--RightEdge
+            // 9--UpEdge
+            // max--All
+        }
+
+        /// <summary>
+        /// 应用协议状态 远程扫描配置数据报格式
+        /// </summary>
+        public enum AppProtocolRemoteScanConfigurationDatagram : byte
+        {
+            DetectingErrorForceMinTSR = 0,
+            DetectingErrorForceMaxTSR = 4,
+            DetectingSpeedMinTSR = 8,
+            DetectingSpeedMaxTSR = 12,
+            IfEnableForceKeepingTSR = 16,
+            IfEnableForceTrackingTSR = 17,
+            DetectingBasicPreservedForceTSR = 18,
+            MaxAvailableRadiusTSR = 22,
+            MaxAvailableAngleTSR = 26,
+            StopRadiusTSR = 30,
+            MaxDistPeriodTSR = 34,
+            MaxAnglePeriodTSR = 38,
+            PositionOverrideTSR = 42,
+            AngleOverrideTSR = 46,
+            ForceOverrideTSR = 50,
+            IfEnableAttitudeTrackingTSR = 54,
+            IfEnableTranslationTrackingTSR = 55
+        }
+
+        /// <summary>
+        /// 应用协议状态 远程扫描工作状态数据报格式
+        /// </summary>
+        public enum AppProtocolRemoteScanWorkStatusDatagram : byte
+        {
+            ModuleWorkingStatus = 0 // byte: OperateModuleBase.WorkStatus
+        }
+
+        /// <summary>
+        /// 应用协议状态 远程扫描配置确认数据报格式
+        /// </summary>
+        public enum AppProtocolRemoteScanConfigurationConfirmDatagram : byte
+        {
+            HasConfirmConfiguration = 0 // byte: 0--no 1--yes
+        }
+
+        /// <summary>
+        /// 应用协议状态 远程扫描力清零数据报格式
+        /// </summary>
+        public enum AppProtocolRemoteScanForceZerodDatagram : byte
+        {
+            HasForceZeroed = 0 // byte: 0--no 1--yes
+        }
+
+        /// <summary>
+        /// 应用协议状态 远程扫描配置过程进度数据报格式
+        /// </summary>
+        public enum AppProtocolRemoteScanConfigurationProcessDatagram : byte
+        {
+            ConfProcess = 0 // byte: max-1--BeforeConfiguration
+            // 0--Initial
+            // 1--StartPos
+            // 2--TranslateRatio
+            // 3--PostureRatio
+            // 4--PressureRatio
+            // 5--PositionTrack
+            // 6--PostureTrack
+            // 7--PressureKeep
+            // 8--PressureTrack
+            // max--All
         }
 
         /// <summary>
@@ -784,7 +986,102 @@ namespace AssistantRobotControlMsgService
             RecoveryFromStopBreastScanImmediately = 122,
             ExitBreastScanMode = 131,
 
+            EnterRemoteScanMode = 141,
+            RemoteScanModeBeginForceZeroed = 142,
+            RemoteScanModeBeginConfigurationSet = 143,
+            RemoteScanModeConfirmStartPos = 144,
+            RemoteScanModeNextConfigurationItem = 145,
+            RemoteScanModeConfirmConfigurationSet = 146,
+            RemoteScanModeReadyAndStartBreastScan = 147,
+            RemoteScanModeSaveConfigurationSet = 148,
+
+            StopRemoteScanImmediately = 151,
+            RecoveryFromStopRemoteScanImmediately = 152,
+            ExitRemoteScanMode = 161,
+
+            AdjustPartRemoteScanConfigurationSet = 171,
+            RefreshRemoteScanAimPos = 172,
+
             NotifyRemoteConnected = 251
+        }
+
+        /// <summary>
+        /// 应用协议指令 末端移动数据报格式
+        /// </summary>
+        public enum AppProtocolMoveTcpDatagram : byte
+        {
+            MoveDirection = 0, // byte: 0--negative 1--positive 
+            MovePattern = 1, // byte: 0--translation 1--rotate
+            MoveAxis = 2 // byte: 0--x 1--y 2--z
+        }
+
+        /// <summary>
+        /// 应用协议指令 关节旋转数据报格式
+        /// </summary>
+        public enum AppProtocolMoveJointDatagram : byte
+        {
+            MoveDirection = 0, // byte: 0--negative 1--positive 
+            MoveAxis = 1, // byte: 1~6--axis number
+        }
+
+        /// <summary>
+        /// 应用协议指令 运动参考数据报格式
+        /// </summary>
+        public enum AppProtocolMoveReferenceDatagram : byte
+        {
+            ReferToBase = 0, // byte: 0--base 1--tool 
+        }
+
+        /// <summary>
+        /// 应用协议指令 运动速度数据报格式
+        /// </summary>
+        public enum AppProtocolMoveSpeedDatagram : byte
+        {
+            SpeedRatio = 0, // float: 0.0~50.0
+        }
+
+        /// <summary>
+        /// 应用协议指令 自动上电数据报格式
+        /// </summary>
+        public enum AppProtocolAutoPowerOnDatagram : byte
+        {
+            WhetherAutoPowerOn = 0, // byte: 0--No 1--Yes
+        }
+
+        /// <summary>
+        /// 应用协议指令 远程扫描部分配置参数数据报格式
+        /// </summary>
+        public enum AppProtocolRemoteScanAimPosDatagram : byte
+        {
+            SignalNum = 0,
+            AimPosX = 4,
+            AimPosY = 12,
+            AimPosZ = 20,
+            AimAttX = 28,
+            AimAttY = 36,
+            AimAttZ = 44
+        }
+
+        /// <summary>
+        /// 应用协议指令 远程扫描目标位置数据报格式
+        /// </summary>
+        public enum AppProtocolAdjustPartRemoteScanConfigurationSetDatagram : byte
+        {
+            PosRatio = 0,
+            AttRatio = 4,
+            FosRatio = 8,
+            PosSwitch = 12,
+            AttSwitch = 13,
+            FosKeepSwitch = 14,
+            FosTrackSwitch = 15
+        }
+
+        /// <summary>
+        /// 应用协议指令 换页数据报格式
+        /// </summary>
+        public enum AppProtocolChangePageDatagram : byte
+        {
+            AimPage = 0, // URViewModel.ShowPage
         }
         #endregion
 
